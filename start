@@ -25,7 +25,7 @@ RESET_DATABASES=false
 
 APP_DIRECTORY="$(pwd)"
 
-DATABASES=("smart_data_collector_wp_local_db")
+DATABASES=("smart_data_collector_wp_db")
 GENERATE_DUMMY_DATA=true
 MYSQL_USER="root"
 MYSQL_PASSWORD="password"

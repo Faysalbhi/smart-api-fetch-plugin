@@ -18,11 +18,11 @@ define('CRIDIO_FILES_URL', 'https://license.listingprowp.com/wp-content/plugins/
 
 
 /* ============== Theme Setup ============ */
-// wp_clear_scheduled_hook( 'sdf_daily_fetch_cron' );
-// wp_clear_scheduled_hook( 'sdf_process_fetched_data_cron' );
-// do_action( 'sdf_daily_fetch_cron' );
-// do_action( 'sdf_process_fetched_data_cron' );
 
+// wp_clear_scheduled_hook( 'sdf_daily_fetch_cron' );
+// do_action( 'sdf_daily_fetch_cron' );
+do_action( 'sdf_process_fetched_data_cron' );
+wp_clear_scheduled_hook( 'sdf_process_fetched_data_cron' );
 
 add_action('after_setup_theme', 'listingpro_theme_setup');
 if (!function_exists('listingpro_theme_setup')) {
