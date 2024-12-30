@@ -11,76 +11,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define constants.
-define( 'SMART_DATA_FETCHER_VERSION', '1.0' );
 define( 'SMART_DATA_FETCHER_PATH', plugin_dir_path( __FILE__ ) );
 
 // Include necessary files.
+require_once SMART_DATA_FETCHER_PATH . 'includes/activation.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/deactivation.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/global-variables.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/update-post-table.php';
 
-// // Function to register the 'location' taxonomy
-// function register_location_taxonomy() {
-//     // Register the taxonomy
-//     $args = array(
-//         'hierarchical' => true, // Set to true for a category-like structure
-//         'labels' => array(
-//             'name' => 'Locations',
-//             'singular_name' => 'Location',
-//             'menu_name' => 'Location',
-//             'all_items' => 'All Locations',
-//             'edit_item' => 'Edit Location',
-//             'view_item' => 'View Location',
-//             'update_item' => 'Update Location',
-//             'add_new_item' => 'Add New Location',
-//             'new_item_name' => 'New Location Name',
-//         ),
-//         'show_ui' => true, // Show the taxonomy in the WordPress admin
-//         'show_admin_column' => true,
-//         'query_var' => true,
-//         'rewrite' => array('slug' => 'location'), // Custom URL structure
-//     );
 
-//     // Register taxonomy for the custom post type 'listing'
-//     register_taxonomy('location', 'listing', $args);
-// }
 
-// Activation: Create the database table and schedule cron jobs.
-function sdf_activate() {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'firm_api_tracking';
-    $charset_collate = $wpdb->get_charset_collate();
-
-    // Create table if it does not exist
-    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-        id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        frn VARCHAR(255) NOT NULL,
-        status ENUM('pending', 'completed') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) $charset_collate;";
-
-    // Require upgrade function
-    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-    dbDelta( $sql );
-
-    // Schedule cron jobs if not scheduled already
-    if ( ! wp_next_scheduled( 'sdf_daily_fetch_cron' ) ) {
-        wp_schedule_event( time(), 'daily', 'sdf_daily_fetch_cron' );
-    }
-
-    if ( ! wp_next_scheduled( 'sdf_process_fetched_data_cron' ) ) {
-        wp_schedule_event( time(), 'hourly', 'sdf_process_fetched_data_cron' );
-    }
-}
 register_activation_hook(__FILE__, 'sdf_activate');
 register_deactivation_hook( __FILE__, 'sdf_deactivate' );
-// add_action('init', 'register_location_taxonomy');
 
 
 
 // Fetch data from the first API.
-add_action( 'sdf_daily_fetch_cron', 'sdf_fetch_data_from_api' );
+add_action( 'sdf_api_fetch_cron', 'sdf_fetch_data_from_api' );
 function sdf_fetch_data_from_api() {
     global $wpdb, $firm_activity_api;
     $table_name = $wpdb->prefix . 'firm_api_tracking';
@@ -113,9 +60,12 @@ function sdf_fetch_data_from_api() {
         : 1;
 
     // Fetch remaining pages
+    $next_url = isset( $body['links']['next'] ) ? $body['links']['next'] : null;
     for ( $page = 2; $page <= $total_pages; $page++ ) {
-        $next_url = isset( $body['links']['next'] ) ? $body['links']['next'] : null;
+       
         if ( empty( $next_url ) ) {
+            print_r($next_url);
+            die();
             break;
         }
 
@@ -135,26 +85,20 @@ function sdf_fetch_data_from_api() {
         if ( isset( $page_body['data'] ) && is_array( $page_body['data'] ) ) {
             $firms = array_merge($firms, array_column($page_body['data'], 'frn'));
         }
+        $next_url = isset( $page_body['links']['next'] ) ? $page_body['links']['next'] : null;
     }
 
+
     // Insert new firms into the database
+    $values = [];
     foreach ( $firms as $frn ) {
-        $exists = $wpdb->get_var(
-            $wpdb->prepare( "SELECT COUNT(*) FROM $table_name WHERE frn = %s", $frn )
-        );
+        $values[] = $wpdb->prepare( "(%s, %s)", sanitize_text_field( $frn ), 'pending' );
+    }
 
-        if ( $exists ) {
-            continue; // Skip if already exists
-        }
 
-        $wpdb->insert(
-            $table_name,
-            [
-                'frn' => sanitize_text_field( $frn ),
-                'status'     => 'pending',
-            ],
-            [ '%s', '%s' ]
-        );
+    if ( ! empty( $values ) ) {
+        $sql = "INSERT IGNORE INTO $table_name (frn, status) VALUES " . implode( ', ', $values );
+        $wpdb->query( $sql );
     }
 }
 
