@@ -32,7 +32,7 @@ function update_post_table($post_id, $firm_data) {
         "youtube" => "http://youtube.com",
         "instagram" => "http://instagram.com",
         "video" => "https://www.youtube.com/watch?v=oMxLKOv_3t0",
-        "gallery" => "",
+        "gallery" => $firm_data['image_url_2'],
         "price_status" => "inexpensive",
         // "list_price" => "2",
         // "list_price_to" => "9",
