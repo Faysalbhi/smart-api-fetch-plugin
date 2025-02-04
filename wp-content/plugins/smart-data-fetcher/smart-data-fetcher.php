@@ -114,6 +114,7 @@ function sdf_process_data_and_create_posts() {
         // No pending entries, exit.
         return;
     }
+    $processed = 0;
 
     foreach($entries as $entry){
          // Construct API URL
@@ -160,11 +161,13 @@ function sdf_process_data_and_create_posts() {
                         import_featured_image($firm_data['image_url_1'], $post_id);
                     }
                     
-                    
+                    //Insert Into Post Table
                     update_post_table($post_id, $firm_data);
 
+                    //Sync Category
                     sync_category($post_id, $firm_data);
 
+                    //Sync Location
                     if(isset($geocoding['city_name'])){
                         sync_location($post_id, $geocoding['city_name']);
                     }
@@ -183,6 +186,8 @@ function sdf_process_data_and_create_posts() {
                         // Check if the update failed
                         if ( $updated === false ) {
                             error_log( "Failed to update status for FRN: {$firm_data['frn']}" );
+                        }else{
+                            ++$processed;
                         }
                     } else {
                         error_log( "Failed to insert post for firm FRN: {$firm_data['frn']}" );
@@ -195,6 +200,8 @@ function sdf_process_data_and_create_posts() {
                 error_log( 'API response is missing or invalid.' );
         }
     }
+
+    return $processed;
         
 }
 
