@@ -50,16 +50,58 @@ function sdf_admin_menu() {
     );
 }
 
-
 function sync_firms_from_api() {
-    echo "<div class='wrap'><h1>Fetch Firms from API</h1><p>Data is being fetched from the API...</p></div>";
-    sdf_fetch_data_from_api();
+    ?>
+    <div class='wrap'>
+        <h1>Fetch Firms from API</h1>
+        <p>Click the button below to fetch data from the API.</p>
+
+        <!-- Button to trigger AJAX -->
+        <button class="button button-primary sdf-ajax-call-button" data-action="sdf_fetch_data" data-nonce="<?php echo wp_create_nonce('sdf_fetch_nonce'); ?>">Fetch Data</button>
+
+        <!-- WordPress spinner element (hidden by default) -->
+        <div id="sdf_fetch_data_spinner" style="display:none; 
+            position: absolute; 
+            top: 20%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            text-align: center;
+            font-size: 50px;">
+            <span class="spinner" style="background-size: 40px 40px !important; width: 40px !important; height: 40px !important;"></span> <!-- Default WordPress spinner -->
+        </div>
+
+        <!-- Status area to show feedback -->
+        <p id="sdf_fetch_data_status"></p>
+    </div>
+    <?php
 }
 
 function process_firm_data() {
-    $processed_count = sdf_process_data_and_create_posts();
-    echo "<div class='wrap'><h1>Process Fetched Firms</h1><p>{$processed_count} firms processed from the tracking table.</p></div>";
+    ?>
+    <div class='wrap'>
+        <h1>Process Fetched Firms</h1>
+        <p>Click the button below to process firms from the tracking list.</p>
+
+        <!-- Button to trigger AJAX -->
+        <button class="button button-primary sdf-ajax-call-button" data-action="sdf_process_firm_data" data-nonce="<?php echo wp_create_nonce('sdf_process_nonce'); ?>">Process Firms</button>
+
+        <div id="sdf_process_firm_data_spinner" style="
+            position: absolute; 
+            top: 20%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            text-align: center;
+            font-size: 50px;">
+            <span class="spinner" style="background-size: 40px 40px !important; width: 40px !important; height: 40px !important;"></span> <!-- Default WordPress spinner -->
+        </div>
+
+        <!-- Status area to show feedback -->
+        <p id="sdf_process_firm_data_status"></p>
+    </div>
+    <?php
 }
+
+
 
 function display_firm_tracking_list() {
     global $wpdb;
@@ -112,10 +154,14 @@ function display_firm_tracking_list() {
                     <?php foreach ($results as $row) : ?>
                         <tr>
                             <td><?= esc_html($row['frn']) ?></td>
-                            <td><?= esc_html($row['status']) ?></td>
+                            <td id="frn_<?= esc_attr($row['frn']) ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">
+                                <?= esc_html($row['status']) ?>
+                            </td>
                             <td><?= esc_html($row['created_at']) ?></td>
                             <td><?= esc_html($row['updated_at']) ?></td>
-                            <td><a href="#"></a>Reprocess</td>
+                            <td>
+                            <a href="#" class="sdf-reprocess-button" data-frn="<?= esc_attr($row['frn']) ?>" data-nonce="<?php echo wp_create_nonce('sdf_reprocess_nonce'); ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">Reprocess</a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

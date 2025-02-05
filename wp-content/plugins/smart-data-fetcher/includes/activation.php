@@ -20,12 +20,12 @@ function sdf_activate() {
 
 
     if ( ! wp_next_scheduled( 'sdf_api_fetch_cron' ) ) {
-        $timestamp = strtotime( 'tomorrow 2:00 AM' ); 
+        $timestamp = mktime(2, 0, 0, date('n'), date('j') + 1, date('Y'));
         wp_schedule_event( $timestamp, 'daily', 'sdf_api_fetch_cron' );
     }
 
     if ( ! wp_next_scheduled( 'sdf_process_fetched_data_cron' ) ) {
-        $timestamp = strtotime( 'tomorrow 5:00 AM' );
+        $timestamp = mktime(5, 0, 0, date('n'), date('j') + 1, date('Y'));
         wp_schedule_event( $timestamp, 'daily', 'sdf_process_fetched_data_cron' );
     }
     
