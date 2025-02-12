@@ -16,7 +16,7 @@ define( 'SMART_DATA_FETCHER_PATH', plugin_dir_path( __FILE__ ) );
 // Include necessary files.
 require_once SMART_DATA_FETCHER_PATH . 'includes/global-variables.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/activation.php';
-require_once SMART_DATA_FETCHER_PATH . 'includes/fetch-latitude-longitude.php';
+// require_once SMART_DATA_FETCHER_PATH . 'includes/fetch-latitude-longitude.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/menu.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/update-post-table.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/deactivation.php';
@@ -165,8 +165,8 @@ function sdf_process_data_and_create_posts() {
                     sync_category($post_id, $firm_data);
 
                     // Sync location
-                    if (isset($geocoding['city_name'])) {
-                        sync_location($post_id, $geocoding['city_name']);
+                    if (isset($firm_data['city'])) {
+                        sync_location($post_id, $firm_data['city']);
                     }
 
                     if ( $post_id ) {
@@ -240,8 +240,8 @@ function sdf_reprocess_specific_firm($frn){
                 sync_category($post_id, $firm_data);
 
                 // Sync location
-                if (isset($geocoding['city_name'])) {
-                    sync_location($post_id, $geocoding['city_name']);
+                if (isset($firm_data['city'])) {
+                    sync_location($post_id, $firm_data['city']);
                 }
 
                 if ( $post_id ) {

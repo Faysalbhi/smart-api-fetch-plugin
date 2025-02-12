@@ -5,13 +5,13 @@
 function update_post_table($post_id, $firm_data) {
     global $geocoding;
     $address = $firm_data['address_line_1'] . ' ' . $firm_data['address_line_2'] . ' ' . $firm_data['address_line_3'] . ' ' . $firm_data['address_line_4'] . ' ' . $firm_data['city'] . ' ' . $firm_data['country'];
-    $geocoding = get_latitude_longitude($address);
+    // $geocoding = get_latitude_longitude($address);
     
     $firm_activity_data = [
         "tagline_text" => $firm_data['firm_status'],
-        "gAddress" => $address,
-        "latitude" => $geocoding['latitude'],
-        "longitude" => $geocoding['longitude'],
+        "gAddress" => $address ?? null,
+        "latitude" => $firm_data['latitude'] ?? null,
+        "longitude" => $firm_data['longitude'] ?? null,
         "mappin" => "",
         "phone" => $firm_data['phone'],
         "whatsapp" => "",
