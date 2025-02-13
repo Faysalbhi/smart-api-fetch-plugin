@@ -34,7 +34,7 @@ function sdf_process_firm_data() {
 add_action( 'wp_ajax_sdf_process_firm_data', 'sdf_process_firm_data' );
 
 // Handle the ReProcess Firms Action
-function sdf_reprocess_firm_data() {
+function sdf_reprocess_specific_firm_data() {
     global $wpdb;
 
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sdf_reprocess_nonce')) {
@@ -49,14 +49,10 @@ function sdf_reprocess_firm_data() {
     $result = sdf_reprocess_specific_firm($frn);
 
     if ($result) {
-        // Update the status in the database
-        $table_name = $wpdb->prefix . 'firm_api_tracking';
-        $wpdb->update($table_name, ['status' => 'completed'], ['frn' => $frn], ['%s'], ['%s']);
-
-        wp_send_json_success(array('message' => 'Reprocessed successfully.'));
+        wp_send_json_success(array('message' => 'Reprocessed successfully.', 'post_id' => $result));
     } else {
         wp_send_json_error(array('message' => 'Reprocessing failed.'));
     }
 }
-add_action('wp_ajax_sdf_reprocess_specific_firm', 'sdf_reprocess_firm_data');
+add_action('wp_ajax_sdf_reprocess_specific_firm', 'sdf_reprocess_specific_firm_data');
 

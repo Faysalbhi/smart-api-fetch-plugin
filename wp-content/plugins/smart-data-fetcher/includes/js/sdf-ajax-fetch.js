@@ -28,6 +28,7 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 if (response.success) {
                     status.html(response.data.message);
+                    console.log(response.data)
                 } else {
                     status.html('Error: ' + response.data.message);
                 }
@@ -53,6 +54,7 @@ jQuery(document).ready(function($) {
         var frn = button.data('frn');
         var nonce = button.data('nonce');
         var statusCell = $('#frn_' + frn);
+        var postIdCell = $('#post_' + frn);
 
         // Disable button and show processing text
         button.prop('disabled', true).text('Processing...').css('color', 'BlueViolet');
@@ -69,7 +71,7 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     // Update status in UI
                     statusCell.text('completed').css('color', 'blue');
-
+                    postIdCell.text(response.data.post_id).css('color', 'gray');
                     // Update button text and color
                     button.text('Completed').css('color', 'blue').prop('disabled', true);
                 } else {
@@ -77,7 +79,8 @@ jQuery(document).ready(function($) {
                     button.text('Reprocess').prop('disabled', false);
                 }
             },
-            error: function() {
+            error: function(response) {
+                console.log(response.data.message);
                 alert('An error occurred.');
                 button.text('Reprocess').prop('disabled', false);
             }

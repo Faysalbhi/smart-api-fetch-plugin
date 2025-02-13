@@ -122,7 +122,7 @@ function display_firm_tracking_list() {
     // Fetch pending firms
     $results = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT status, created_at, updated_at, frn 
+            "SELECT status, created_at, updated_at, frn , post_id
              FROM $table_name 
              ORDER BY id DESC 
              LIMIT %d OFFSET %d",
@@ -144,6 +144,7 @@ function display_firm_tracking_list() {
                 <thead>
                     <tr>
                         <th scope="col">FRN</th>
+                        <th scope="col">POST ID</th>
                         <th scope="col">Status</th>
                         <th scope="col">Created At</th>
                         <th scope="col">Updated At</th>
@@ -154,6 +155,7 @@ function display_firm_tracking_list() {
                     <?php foreach ($results as $row) : ?>
                         <tr>
                             <td><?= esc_html($row['frn']) ?></td>
+                            <td id="post_<?= esc_attr($row['frn']) ?>" ><?= esc_html($row['post_id'] ?? 'NULL') ?></td>
                             <td id="frn_<?= esc_attr($row['frn']) ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">
                                 <?= esc_html($row['status']) ?>
                             </td>

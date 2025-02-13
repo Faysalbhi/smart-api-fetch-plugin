@@ -106,90 +106,99 @@ function sdf_fetch_data_from_api() {
 
 // Process the data from the `firm_api_tracking` table to post table.
 add_action( 'sdf_process_fetched_data_cron', 'sdf_process_data_and_create_posts' );
+
 function sdf_process_data_and_create_posts() {
     global $wpdb, $single_firm_activity_api, $geocoding;
     $table_name = $wpdb->prefix . 'firm_api_tracking';
 
-    // Fetch one pending record.
-    $entries = $wpdb->get_results( "SELECT * FROM $table_name WHERE status = 'pending' LIMIT 10" );
-    if ( ! $entries ) {
-        return wp_send_json_error(array('message' => "No pending firms found in the Firm API tracking table. If you want to reprocess a specific firm, please trigger the <b>Reprocess</b> button from the firm tracking list"));
+    // Fetch pending records (limit to 10)
+    $entries = $wpdb->get_results("SELECT * FROM $table_name WHERE status = 'pending' LIMIT 10");
+    
+    if (!$entries) {
+        return wp_send_json_error(['message' => "No pending firms found."]);
     }
+
     $processed = 0;
 
-    foreach($entries as $entry){
-         // Construct API URL
+    foreach ($entries as $entry) {
         $api_url = $single_firm_activity_api . $entry->frn;
+        $response = wp_remote_get($api_url);
         
-        // Fetch data from the API
-        $response = wp_remote_get( $api_url );
-        
-        if ( is_wp_error( $response ) ) {
-            return wp_send_json_error(array('message' => 'Error fetching firm data: ' .$response->get_error_message()));
+        if (is_wp_error($response)) {
+            error_log('Error fetching firm data: ' . $response->get_error_message());
+            continue; // Skip this entry
         }
 
-        $response_code = wp_remote_retrieve_response_code( $response );
-        
-        if ( $response_code !== 200 ) {
-            error_log( "Error fetching firm data: HTTP Response Code $response_code" );
-            return wp_send_json_error(array('message' => "Error fetching firm data: HTTP Response Code $response_code"));
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code !== 200) {
+            error_log("Error fetching firm data: HTTP Response Code $response_code");
+            continue; // Skip this entry
         }
 
-        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        $data = json_decode(wp_remote_retrieve_body($response), true);
 
-        if ( isset( $data['data'] ) && is_array( $data['data'] ) ) {
-            foreach ( $data['data'] as $firm_data ) {
-                // Check if 'firm_name' and 'firm_status' are available in the response
-                if ( isset( $firm_data['firm_name']) ) {
-                    global $wpdb;
-                    $table_name = $wpdb->prefix . 'firm_api_tracking';
+        if (!isset($data['data']) || !is_array($data['data']) || empty($data['data'])) {
+            error_log("API response has no valid data for FRN: " . $entry->frn);
+            continue; // Skip this entry
+        }
 
-                    // Insert data into the `posts` table
-                    $post_id = wp_insert_post( [
-                        'post_title'   => sanitize_text_field( $firm_data['firm_name'] ),
-                        'post_content' => wp_kses_post( $firm_data['description'] ),
-                        'post_status'  => 'publish',
-                        'post_author'  => 1,
-                        'post_type'  => 'listing',
-                    ] );
-                    
-                    // Set featured image if available
-                    if (!empty($firm_data['image_url_1'])) {
-                        import_featured_image($firm_data['image_url_1'], $post_id);
-                    }
-                    
-                    // Insert into the post table
-                    update_post_table($post_id, $firm_data);
+        foreach ($data['data'] as $firm_data) {
+            if (isset($firm_data['firm_name'])) {
+                // Insert new post
+                $post_id = wp_insert_post([
+                    'post_title'   => sanitize_text_field($firm_data['firm_name']),
+                    'post_content' => wp_kses_post($firm_data['description']),
+                    'post_status'  => 'publish',
+                    'post_author'  => 1,
+                    'post_type'    => 'listing',
+                ]);
 
-                    // Sync category
-                    sync_category($post_id, $firm_data);
+                $image_urls = [];
 
-                    // Sync location
-                    if (isset($firm_data['city'])) {
-                        sync_location($post_id, $firm_data['city']);
-                    }
+                // Check and add image URLs if they exist
+                if (!empty($firm_data['image_url_2'])) {
+                    $image_urls[] = $firm_data['image_url_2'];
+                }
+                if (!empty($firm_data['image_url_1'])) {
+                    $image_urls[] = $firm_data['image_url_1'];
+                    import_featured_image($firm_data['image_url_1'], $post_id);
+                }
 
-                    if ( $post_id ) {
-                        // If the post is successfully inserted, update the `firm_api_tracking` table
-                        $updated = $wpdb->update(
-                            $table_name,
-                            ['status' => 'completed'],
-                            ['frn' => $firm_data['frn']],  // Use the 'frn' column to identify the record
-                            ['%s'],
-                            ['%s']
-                        );
+                // Call the function only if there are valid image URLs
+                if (!empty($image_urls)) {
+                    add_gallery_images_to_post($post_id, $image_urls);
+                }
 
-                        if ($updated !== false) {
-                            ++$processed;
-                        }
+                update_post_table($post_id, $firm_data);
+                sync_category($post_id, $firm_data);
+
+                if (isset($firm_data['city'])) {
+                    sync_location($post_id, $firm_data['city']);
+                }
+
+                if ($post_id) {
+                    $updated = $wpdb->update(
+                        $table_name,
+                        ['status' => 'completed', 'post_id' => $post_id],
+                        ['frn' => $firm_data['frn']],
+                        ['%s', '%d'],
+                        ['%s']
+                    );
+
+                    if ($updated === false) {
+                        error_log("Database update failed for FRN: " . $firm_data['frn']);
+                    } else {
+                        ++$processed;
                     }
                 }
             }
+            break;
         }
     }
 
     return $processed;
 }
+
 
 function sdf_reprocess_specific_firm($frn){
     global $wpdb, $single_firm_activity_api, $geocoding;
@@ -219,18 +228,46 @@ function sdf_reprocess_specific_firm($frn){
                 global $wpdb;
                 $table_name = $wpdb->prefix . 'firm_api_tracking';
 
-                // Insert data into the `posts` table
-                $post_id = wp_insert_post( [
-                    'post_title'   => sanitize_text_field( $firm_data['firm_name'] ),
-                    'post_content' => wp_kses_post( $firm_data['description'] ),
-                    'post_status'  => 'publish',
-                    'post_author'  => 1,
-                    'post_type'  => 'listing',
-                ] );
-                
-                // Set featured image if available
+                // Securely retrieve post_id
+                $post_id = $wpdb->get_var(
+                    $wpdb->prepare("SELECT post_id FROM $table_name WHERE frn = %s", $frn)
+                );
+
+                if ($post_id) {
+                    // If post_id exists, update the post
+                    $post_data = [
+                        'ID'           => $post_id,
+                        'post_title'   => sanitize_text_field($firm_data['firm_name']),
+                        'post_content' => wp_kses_post($firm_data['description']),
+                    ];
+                    wp_update_post($post_data);
+                } else {
+                    // If post_id doesn't exist, create a new post
+                    $post_id = wp_insert_post([
+                        'post_title'   => sanitize_text_field($firm_data['firm_name']),
+                        'post_content' => wp_kses_post($firm_data['description']),
+                        'post_status'  => 'publish',
+                        'post_author'  => 1,
+                        'post_type'    => 'listing',
+                    ]);
+
+                }
+
+
+                $image_urls = [];
+
+                // Check and add image URLs if they exist
+                if (!empty($firm_data['image_url_2'])) {
+                    $image_urls[] = $firm_data['image_url_2'];
+                }
                 if (!empty($firm_data['image_url_1'])) {
+                    $image_urls[] = $firm_data['image_url_1'];
                     import_featured_image($firm_data['image_url_1'], $post_id);
+                }
+
+                // Call the function only if there are valid image URLs
+                if (!empty($image_urls)) {
+                    add_gallery_images_to_post($post_id, $image_urls);
                 }
                 
                 // Insert into the post table
@@ -243,19 +280,22 @@ function sdf_reprocess_specific_firm($frn){
                 if (isset($firm_data['city'])) {
                     sync_location($post_id, $firm_data['city']);
                 }
-
+               
                 if ( $post_id ) {
                     // If the post is successfully inserted, update the `firm_api_tracking` table
                     $updated = $wpdb->update(
                         $table_name,
-                        ['status' => 'completed'],
-                        ['frn' => $firm_data['frn']],  // Use the 'frn' column to identify the record
-                        ['%s'],
+                        [
+                            'status' => 'completed', 
+                            'post_id' => $post_id
+                        ], 
+                        ['frn' => $frn],
+                        ['%s','%d' ],
                         ['%s']
                     );
 
                     if ($updated !== false) {
-                        return true;
+                        return $post_id;
                     }
                 }
             }
@@ -268,21 +308,65 @@ function sdf_reprocess_specific_firm($frn){
 
 
 function import_featured_image($image_url, $post_id) {
-    // Include the file that defines media_sideload_image if it's not already loaded
+    // Include necessary WordPress files if not already loaded
     if (!function_exists('media_sideload_image')) {
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
     }
 
-    // Use media_sideload_image to download and attach the image
+    // Check if the post already has a featured image
+    $old_image_id = get_post_thumbnail_id($post_id);
+
+    // If a featured image exists, delete it along with the attachment file
+    if (!empty($old_image_id)) {
+        wp_delete_attachment($old_image_id, true); // true = delete files as well
+    }
+
+    // Download and attach the new image
     $image_id = media_sideload_image($image_url, $post_id, null, 'id');
-    
-    // Check for errors and set as the featured image if successful
+
+    // If no error, set it as the new featured image
     if (!is_wp_error($image_id)) {
         set_post_thumbnail($post_id, $image_id);
+    } else {
+        error_log("Failed to import image: " . $image_url);
     }
 }
+
+function add_gallery_images_to_post($post_id, $image_urls) {
+    // Retrieve existing gallery images
+    $existing_gallery = get_post_meta($post_id, 'gallery_image_ids', true);
+
+    if (!empty($existing_gallery)) {
+        $existing_image_ids = explode(',', $existing_gallery);
+        
+        // Delete existing images from media library
+        foreach ($existing_image_ids as $image_id) {
+            wp_delete_attachment((int) $image_id, true);
+        }
+    }
+
+    // Now, add new images
+    $image_ids = [];
+    
+    foreach ($image_urls as $image_url) {
+        $image_id = media_sideload_image($image_url, $post_id, null, 'id');
+
+        if (!is_wp_error($image_id)) {
+            $image_ids[] = (int) $image_id;
+        }
+    }
+
+    if (!empty($image_ids)) {
+        // Save new images as a comma-separated string
+        update_post_meta($post_id, 'gallery_image_ids', implode(',', $image_ids));
+    }
+}
+
+
+
+
 
 function sync_category($post_id, $firm_data){
        // Define the mapping of field names to category IDs
