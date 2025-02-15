@@ -108,7 +108,7 @@ function display_firm_tracking_list() {
     $table_name = $wpdb->prefix . 'firm_api_tracking';
 
     // Pagination parameters
-    $items_per_page = 15;
+    $items_per_page = 30;
     $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
     $offset = ($current_page - 1) * $items_per_page;
 
@@ -119,18 +119,23 @@ function display_firm_tracking_list() {
         $wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE status = %s", 'pending')
     );
 
-    // Fetch pending firms
-    $results = $wpdb->get_results(
-        $wpdb->prepare(
-            "SELECT status, created_at, updated_at, frn , post_id
-             FROM $table_name 
-             ORDER BY id DESC 
-             LIMIT %d OFFSET %d",
-            $items_per_page,
-            $offset
-        ),
-        ARRAY_A
-    );
+    // Filtering by FRN number
+    $filter_frn = isset($_GET['filter_frn']) ? sanitize_text_field($_GET['filter_frn']) : '';
+
+    $query = "SELECT status, created_at, updated_at, frn , post_id FROM $table_name";
+    $query_params = [];
+
+    if (!empty($filter_frn)) {
+        $query .= " WHERE frn LIKE %s";
+        $query_params[] = '%' . $filter_frn . '%';
+    }
+
+    $query .= " ORDER BY id DESC LIMIT %d OFFSET %d";
+    $query_params[] = $items_per_page;
+    $query_params[] = $offset;
+
+    // Fetch results
+    $results = $wpdb->get_results($wpdb->prepare($query, ...$query_params), ARRAY_A);
 
     // Output table
     ?>
@@ -138,8 +143,19 @@ function display_firm_tracking_list() {
         <h1 class="wp-heading-inline">Firm Tracking List</h1>
         <hr class="wp-header-end">
 
+        <p class="summary-info">Total Firms: <?= esc_html($total_items) ?></p>
+        <p class="summary-info">Total Pending Firms: <?= esc_html($total_pending) ?></p>
+
+
+        <!-- Filter Form -->
+        <form method="GET" class="summary-info">
+            <input type="hidden" name="page" value="<?= esc_attr($_GET['page']) ?>">
+            <input type="text" name="filter_frn" value="<?= esc_attr($filter_frn) ?>" placeholder="Filter by FRN">
+            <button type="submit" class="button">Filter</button>
+            <a href="<?= esc_url(remove_query_arg('filter_frn')) ?>" class="button">Reset</a>
+        </form>
+
         <?php if (!empty($results)) : ?>
-            <h3>Total Pending Firms: <?= esc_html($total_pending) ?></h3>
             <table class="wp-list-table widefat fixed striped table-view-list">
                 <thead>
                     <tr>
@@ -155,14 +171,14 @@ function display_firm_tracking_list() {
                     <?php foreach ($results as $row) : ?>
                         <tr>
                             <td><?= esc_html($row['frn']) ?></td>
-                            <td id="post_<?= esc_attr($row['frn']) ?>" ><?= esc_html($row['post_id'] ?? 'NULL') ?></td>
+                            <td id="post_<?= esc_attr($row['frn']) ?>"><?= esc_html($row['post_id'] ?? 'NULL') ?></td>
                             <td id="frn_<?= esc_attr($row['frn']) ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">
                                 <?= esc_html($row['status']) ?>
                             </td>
                             <td><?= esc_html($row['created_at']) ?></td>
                             <td><?= esc_html($row['updated_at']) ?></td>
                             <td>
-                            <a href="#" class="sdf-reprocess-button" data-frn="<?= esc_attr($row['frn']) ?>" data-nonce="<?php echo wp_create_nonce('sdf_reprocess_nonce'); ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">Reprocess</a>
+                                <a href="#" class="sdf-reprocess-button" data-frn="<?= esc_attr($row['frn']) ?>" data-nonce="<?php echo wp_create_nonce('sdf_reprocess_nonce'); ?>" style="color: <?= ($row['status'] === 'completed') ? 'green' : 'orange'; ?>;">Reprocess</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -172,19 +188,24 @@ function display_firm_tracking_list() {
             <?php
             // Pagination
             $total_pages = ceil($total_items / $items_per_page);
-            if ($total_pages > 1) {
+            if ($total_pages > 1 && empty($filter_frn)) {
                 $page_links = paginate_links([
                     'base'      => add_query_arg('paged', '%#%'),
                     'format'    => '',
                     'current'   => $current_page,
                     'total'     => $total_pages,
-                    'prev_text' => '&laquo;',
-                    'next_text' => '&raquo;',
+                    'prev_text' => '<button class="button prev-page">Previous</button>',
+                    'next_text' => '<button class="button next-page">Next</button>',
                 ]);
 
                 if ($page_links) {
-                    echo '<div class="tablenav"><div class="tablenav-pages">' . $page_links . '</div></div>';
+                    echo '
+                    <span style="margin-right: 15px; font-size: 10px;">Per Page Items: '.$items_per_page. '</span>       
+                    <div class="tablenav" style="display: flex;margin-top: 20px; justify-content: center; align-items: center; width: 100%;">
+                    <div class="tablenav-pages" >' . $page_links . '</div>
+                    </div>';
                 }
+                
             }
             ?>
 
@@ -192,8 +213,69 @@ function display_firm_tracking_list() {
             <p>No data found in the tracking table.</p>
         <?php endif; ?>
     </div>
-    <?php
+
+    <style>
+        .summary-info {
+            display: block;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Pagination Container */
+        .tablenav-pages {
+            font-size: 16px;
+            text-align: center; /* Centering Pagination */
+            margin-top: 15px;
+        }
+
+        /* Pagination Buttons (Page Numbers + Prev & Next) */
+        .tablenav-pages a,
+        .tablenav-pages .current,
+        .tablenav-pages .prev-page,
+        .tablenav-pages .next-page {
+            display: inline-block;
+            padding: 2px 5px; /* Ensuring all buttons are the same size */
+            margin: 0 5px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 1; /* Fix height differences */
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Default Page Links */
+        .tablenav-pages a,
+        .tablenav-pages .prev-page,
+        .tablenav-pages .next-page {
+            color: black;
+        }
+
+        /* Hover Effect */
+        .tablenav-pages a:hover,
+        .tablenav-pages .prev-page:hover,
+        .tablenav-pages .next-page:hover {
+            border-color: #005a87;
+        }
+
+        /* Active (Current) Page */
+        .tablenav-pages .current {
+            background-color: #004a70;
+            color: white;
+            cursor: default;
+            border: 2px solid #00334d;
+        }
+    </style>
+
+
+
+
+
+<?php
 }
+
+
 
 
 
