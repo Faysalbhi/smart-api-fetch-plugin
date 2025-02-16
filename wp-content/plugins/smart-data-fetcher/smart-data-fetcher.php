@@ -21,6 +21,7 @@ require_once SMART_DATA_FETCHER_PATH . 'includes/menu.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/update-post-table.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/deactivation.php';
 require_once SMART_DATA_FETCHER_PATH . 'includes/ajax-handlers.php';
+require_once SMART_DATA_FETCHER_PATH . 'includes/handle-reprocess-request.php';
 
 
 register_activation_hook(__FILE__, 'sdf_activate');
@@ -437,13 +438,4 @@ function sdf_enqueue_admin_scripts() {
     }
 }
 add_action('admin_enqueue_scripts', 'sdf_enqueue_admin_scripts');
-
-
-
-
-
-
-
-
-
 
