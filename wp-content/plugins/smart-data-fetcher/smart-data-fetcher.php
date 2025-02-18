@@ -369,35 +369,44 @@ function add_gallery_images_to_post($post_id, $image_urls) {
 
 
 
-function sync_category($post_id, $firm_data){
-       // Define the mapping of field names to category IDs
-       $category_map = [
-        'insurance' => term_exists('Insurance'),
-        'mortgages_home_finance' => term_exists('Mortgages'),
-        'consumer_credit' => term_exists('Consumer credit'),
-        'investments' => term_exists('Investments'),
-        'pensions' => term_exists('Pensions'),
-        'other_activities' => term_exists('Other Services'),
+function sync_category($post_id, $firm_data) {
+    // Define the mapping of field names to category slugs
+    $category_map = [
+        'insurance' => 'Insurance',
+        'mortgages_home_finance' => 'Mortgages',
+        'consumer_credit' => 'Consumer credit',
+        'investments' => 'Investments',
+        'pensions' => 'Pensions',
+        'other_activities' => 'Other Services',
     ];
 
     // Initialize the category_id array
     $category_id = [];
 
     // Iterate over the mapping and add category IDs if the corresponding field is true
-    foreach ($category_map as $field => $category) {
-        if ($firm_data[$field] == 1) {
-            $category_id[] = $category;
-        }else{
-            $category_id[0] = term_exists('Other Services');
-
+    foreach ($category_map as $field => $category_name) {
+        if (!empty($firm_data[$field]) && $firm_data[$field] == 1) {
+            $category = term_exists($category_name, 'listing-category'); // Ensure taxonomy is specified
+            if ($category && !empty($category['term_id'])) {
+                $category_id[] = $category['term_id']; // Extract only term_id
+            }
         }
     }
-    
-    // If there are any categories, set them
+
+    // If no categories were found, default to "Other Services"
+    if (empty($category_id)) {
+        $default_category = term_exists('Other Services', 'listing-category');
+        if ($default_category && !empty($default_category['term_id'])) {
+            $category_id[] = $default_category['term_id'];
+        }
+    }
+
+    // Assign categories only if valid term IDs are found
     if (!empty($category_id)) {
-       wp_set_post_terms($post_id, $category_id, 'listing-category');
+        wp_set_post_terms($post_id, $category_id, 'listing-category');
     }
 }
+
 
 
 function sync_location($post_id, $location) {
