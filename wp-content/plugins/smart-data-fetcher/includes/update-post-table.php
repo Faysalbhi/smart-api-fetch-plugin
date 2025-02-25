@@ -57,21 +57,21 @@ function update_post_table($post_id, $firm_data) {
         "business_logo" => $firm_data['image_url_1'] ?? 'https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg'
     ];
 
-    // $additional_info = [
-    //     'fca-registration-number' => $firm_data['frn'],
-    //     'company-registration-number' => $firm_data['registered_company_number'],
-    //     'year-established' => $firm_data['authorisation_date'],
-    //     'fca-registration-number-mfilter' => 'fca-registration-number-' . $firm_data['frn'],
-    //     'company-registration-number-mfilter' =>'company-registration-number-'. $firm_data['registered_company_number'],
-    //     'year-established-mfilter' =>'year-established-'. $firm_data['authorisation_date'],
-    // ];
+    $additional_info = [
+        'fca-registration-number' => $firm_data['frn'],
+        'company-registration-number' => $firm_data['registered_company_number'],
+        // 'year-established' => $firm_data['authorisation_date'],
+        'fca-registration-number-mfilter' => 'fca-registration-number-' . $firm_data['frn'],
+        'company-registration-number-mfilter' =>'company-registration-number-'. $firm_data['registered_company_number'],
+        // 'year-established-mfilter' =>'year-established-'. $firm_data['authorisation_date'],
+    ];
 
     
     
     // Update post meta with the cleaned serialized data
     update_post_meta($post_id, 'lp_listingpro_options', $firm_activity_data);
 
-    // update_post_meta($post_id, 'lp_listingpro_options_fields', $additional_info);
+    update_post_meta($post_id, 'lp_listingpro_options_fields', $additional_info);
 
 }
 
