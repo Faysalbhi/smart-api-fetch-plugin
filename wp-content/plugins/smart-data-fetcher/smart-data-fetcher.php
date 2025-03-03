@@ -2,7 +2,7 @@
 /*
 Plugin Name: Smart Data Fetcher
 Description: Fetch data from an API and process it to store in custom and default WordPress tables.
-Version: 1.0
+Version: 1.1
 Author: smartwebsource.com
 */
 

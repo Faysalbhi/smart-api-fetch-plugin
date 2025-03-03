@@ -60,10 +60,10 @@ function update_post_table($post_id, $firm_data) {
     $additional_info = [
         'fca-registration-number' => $firm_data['frn'],
         'company-registration-number' => $firm_data['registered_company_number'],
-        // 'year-established' => $firm_data['authorisation_date'],
+        'year-established' => $firm_data['authorisation_date'],
         'fca-registration-number-mfilter' => 'fca-registration-number-' . $firm_data['frn'],
         'company-registration-number-mfilter' =>'company-registration-number-'. $firm_data['registered_company_number'],
-        // 'year-established-mfilter' =>'year-established-'. $firm_data['authorisation_date'],
+        'year-established-mfilter' =>'year-established-'. $firm_data['authorisation_date'],
     ];
 
     
